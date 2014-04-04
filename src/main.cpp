@@ -1211,17 +1211,26 @@ unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, const CBloc
     if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || (uint64)BlockLastSolved->nHeight < PastBlocksMin) { return bnProofOfWorkLimit.GetCompact(); }
         
         for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++) {
-                if (PastBlocksMax > 0 && i > PastBlocksMax) { break; }
+            int64 LatestBlockTime = BlockLastSolved->GetBlockTime();
+            if (PastBlocksMax > 0 && i > PastBlocksMax) { break; }
                 PastBlocksMass++;
                 
                 if (i == 1) { PastDifficultyAverage.SetCompact(BlockReading->nBits); }
                 else { PastDifficultyAverage = ((CBigNum().SetCompact(BlockReading->nBits) - PastDifficultyAveragePrev) / i) + PastDifficultyAveragePrev; }
                 PastDifficultyAveragePrev = PastDifficultyAverage;
-                
-                PastRateActualSeconds = BlockLastSolved->GetBlockTime() - BlockReading->GetBlockTime();
+                if (LatestBlockTime < BlockReading->GetBlockTime()) {
+                    if (BlockReading->nHeight > 11500) // HARD Fork block number
+                        LatestBlockTime = BlockReading->GetBlockTime();
+                }
+                PastRateActualSeconds = LatestBlockTime - BlockReading->GetBlockTime();
                 PastRateTargetSeconds = TargetBlocksSpacingSeconds * PastBlocksMass;
                 PastRateAdjustmentRatio = double(1);
-                if (PastRateActualSeconds < 0) { PastRateActualSeconds = 0; }
+                if (BlockReading->nHeight > 11500) { // HARD Fork block number
+                    if (PastRateActualSeconds < 1) { PastRateActualSeconds = 1; }
+                }
+                else {
+                     if (PastRateActualSeconds < 0) { PastRateActualSeconds = 0; }
+                }
                 if (PastRateActualSeconds != 0 && PastRateTargetSeconds != 0) {
                 PastRateAdjustmentRatio = double(PastRateTargetSeconds) / double(PastRateActualSeconds);
                 }
